@@ -12,13 +12,9 @@ class DB_SERVER {
     }
 
     async createFetch(urlParams, method, body = null, addToken = false, headers = null, stringifyBody = true, onUploadProgressCB = null) {
-        const apiUrl = `${this.serverUrl}${urlParams}`;
+        const apiUrl = (urlParams.startsWith("http")) ? urlParams : `${this.serverUrl}${urlParams}`;
 
-        if (!headers) {
-            headers = { // default
-                'Content-Type': 'application/json',
-            };
-        }
+        headers = headers || { "Content-Type": "application/json" };
 
         if (addToken) {
             const accessToken = getCookie(AUTH_COOKIE_NAME);
@@ -27,31 +23,29 @@ class DB_SERVER {
 
         let requestParams = {
             url: apiUrl,
-            method: method,
+            method,
+            headers,
+            onUploadProgress: onUploadProgressCB || undefined
         }
 
         if (Object.keys(headers).length > 0)
             requestParams['headers'] = headers;
 
-        if (body) {
-            if (stringifyBody)
-                requestParams['data'] = JSON.stringify(body);
-            else
-                requestParams['data'] = body;
-        }
-
-        if (onUploadProgressCB) {
-            requestParams['onUploadProgress'] = onUploadProgressCB;
-        }
+        if (body)
+            requestParams['data'] = stringifyBody ? JSON.stringify(body) : body;
 
         let result = null;
         try {
             result = await this.axios(requestParams);
 
+            if (result.data === "" || result.data === null) {
+                return { success: result.status >= 200 && result.status < 300 };
+            }
+
             return result.data;
         }
         catch (e) {
-            return { success: false };
+            return { success: false, message: e?.message || "Request failed" };
         }
     }
 
@@ -218,10 +212,10 @@ class DB_SERVER {
         })
     }
 
-    async deleteUser(email) {
+    async deleteUser(user) {
         return new Promise(async (resolve, reject) => {
             try {
-                const response = await this.createFetch('/user/delete', 'post', { email }, true);
+                const response = await this.createFetch('/user/delete', 'post', { user: user }, true);
 
                 if (response.success)
                     resolve(response);
@@ -250,24 +244,44 @@ class DB_SERVER {
         })
     }
 
-    async uploadMovie(file, onUploadProgressCB, subFolder=null) {
-        return new Promise(async (resolve, reject) => {
-            try {
-                const formData = new FormData();
-                formData.append("file", file);
-                formData.append("subFolder", subFolder);
+    async uploadMovie(file, onUploadProgressCB, subFolder = null) {
+        try {
+            const presignData = {
+                fileName: file.name,
+                fileType: file.type,
+                subFolder
+            };
 
-                const response = await this.createFetch('/files/upload', 'post', formData, true, {}, false, onUploadProgressCB);
+            let response = await this.createFetch('/files/presign', 'post', presignData, false, {}, false);
+            const { url, presign } = response
 
-                if (response.success)
-                    resolve(response);
-                else
-                    resolve({ success: false, message: response.message });
+            if (response.success) {
+                if (presign)
+                    response = await this.createFetch(url, 'put', file, false, { "Content-Type": file.type }, false, onUploadProgressCB);
+                else {
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    formData.append("subFolder", subFolder);
+
+                    const response = await this.createFetch(url, 'put', formData, true, {}, false, onUploadProgressCB);
+                }
+
+                return ({
+                    success: true,
+                    message: 'The file was uploaded successfully.',
+                    url: url,
+                    file_name: file.name,
+                    subFolder: subFolder,
+                    times: 1,
+                    deletable: true
+                });
             }
-            catch (e) {
-                reject({ success: false, message: e.message })
-            }
-        })
+            else
+                return ({ success: false, message: response.message });
+        }
+        catch (e) {
+            return ({ success: false, message: e.message })
+        }
     }
 }
 

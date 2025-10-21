@@ -204,14 +204,6 @@ function Settings({ cancelFunc, user }) {
     };
 
     async function uploadMovie() {
-        // const uploadCB = (progressEvent) => {
-        //     const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-        //     setProgressWidth(percent);
-        //     console.log(`Upload progress: ${percent}%`);
-        // }
-
-        // const result = await db.uploadMovie(file, uploadCB, user?.id ? user.id : user._id);
-
         let processW = 10;
         setUploadMsg('Uploading file, please wait...');
         setDisableUploadButtons(true);
@@ -219,7 +211,8 @@ function Settings({ cancelFunc, user }) {
             setProgressWidth(processW);
             processW = Math.min(processW + 10, 95);
         }, 2000)
-        const result = await db.uploadMovie(file, null, user?.id ? user.id : user._id);
+        const userId = user?.id ? user.id : user._id;
+        const result = await db.uploadMovie(file, null, userId);
 
         clearInterval(processInterval);
         setProgressWidth(100);
@@ -230,7 +223,7 @@ function Settings({ cancelFunc, user }) {
         if (result.success) {
             setFile(null);
             const { file_name, url, deletable, subFolder, times } = result;
-            setMovies([...movies.filter(m => m.url !== url), { file_name, url, subFolder, deletable, times }]);
+            setMovies([...movies.filter(m => m.file_name + userId !== file_name + subFolder), { file_name, url, subFolder, deletable, times }]);
         }
     }
 

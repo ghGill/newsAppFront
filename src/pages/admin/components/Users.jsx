@@ -33,7 +33,9 @@ function Users({ users, setUsers, setActiveTab }) {
         const result = await db.addUser(newUser);
 
         if (result.success) {
-            setUsers([...users, newUser]);
+            setUsers([...users, {...newUser, id:result.data.id}]);
+            console.log({...newUser, id:result.data.id});
+            
             clearNewUser();
             displayMsg("User added successfully.")
         }
@@ -91,7 +93,8 @@ function Users({ users, setUsers, setActiveTab }) {
                             style: { "backgroundColor": "red", "border": "none", "padding": "16px", "fontWeight": "bold" },
                             noHover: true,
                             actionHandler: (async () => { 
-                                await db.deleteUser(selectedUser.current.email);
+                                selectedUser.current.id = selectedUser.current.id?? selectedUser.current._id;
+                                await db.deleteUser(selectedUser.current);
                                 const updatedUsers = users.filter(u => u.email != selectedUser.current.email);
                                 setUsers(updatedUsers);
                              })
