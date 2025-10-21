@@ -253,7 +253,7 @@ class DB_SERVER {
             };
 
             let response = await this.createFetch('/files/presign', 'post', presignData, false, {}, false);
-            const { url, presign } = response
+            const { url, presign, bucketUrl } = response
 
             if (response.success) {
                 if (presign)
@@ -269,7 +269,7 @@ class DB_SERVER {
                 return ({
                     success: true,
                     message: 'The file was uploaded successfully.',
-                    url: url,
+                    url: bucketUrl ? bucketUrl : url,
                     file_name: file.name,
                     subFolder: subFolder,
                     times: 1,
